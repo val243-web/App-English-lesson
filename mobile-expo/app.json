@@ -16,6 +16,7 @@
     "android": {
       "package": "com.englishlesson.app",
       "versionCode": 2,
+      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "backgroundColor": "#2563EB"
       }

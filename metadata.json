@@ -1,0 +1,6 @@
+{
+  "name": "LinguaStep",
+  "description": "Application mobile et web pour apprendre l'anglais sans backend : 3 niveaux progressifs en 6 parties sous forme de quiz, dictionnaire anglais-français avec voix et coach de prononciation.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": []
+}

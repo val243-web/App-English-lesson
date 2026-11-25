@@ -2,24 +2,41 @@
   "expo": {
     "name": "English Lesson",
     "slug": "english-lesson",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#F8FAFC"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.englishlesson.app"
     },
     "android": {
       "package": "com.englishlesson.app",
-      "versionCode": 2,
-      "edgeToEdgeEnabled": true,
+      "versionCode": 3,
+      "edgeToEdgeEnabled": false,
       "adaptiveIcon": {
-        "backgroundColor": "#2563EB"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1654D8"
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#1654D8"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "useLegacyPackaging": true
+          }
+        }
+      ]
+    ]
   }
 }

@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Component, ErrorInfo, ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +9,9 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { BADGES, evaluateUnlockedBadges } from '../src/data/badges';
 import { LEVELS } from '../src/data/curriculum';
 import { DICTIONARY_ENTRIES } from '../src/data/dictionary';
@@ -31,11 +32,95 @@ import {
   isStoryUnlocked,
 } from '../src/utils/storage';
 
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 const STORAGE_KEY = 'english_lesson_mobile_progress_v2';
 
 type Tab = 'path' | 'revision' | 'dictionary' | 'coach' | 'badges';
 
+function mergeLoadedProgress(parsed: Partial<UserProgress>): UserProgress {
+  const defaults = getDefaultProgress();
+  return {
+    ...defaults,
+    ...parsed,
+    theme: parsed.theme === 'dark' ? 'dark' : 'light',
+    accent: parsed.accent === 'en-GB' ? 'en-GB' : 'en-US',
+    parts: {
+      ...defaults.parts,
+      ...(parsed.parts ?? {}),
+    },
+    stories: {
+      ...defaults.stories,
+      ...(parsed.stories ?? {}),
+    },
+    favoriteWordIds: Array.isArray(parsed.favoriteWordIds)
+      ? parsed.favoriteWordIds
+      : defaults.favoriteWordIds,
+    practicedWords: parsed.practicedWords ?? {},
+    masteredRevisionIds: Array.isArray(parsed.masteredRevisionIds)
+      ? parsed.masteredRevisionIds
+      : [],
+    weakQuestionIds: Array.isArray(parsed.weakQuestionIds) ? parsed.weakQuestionIds : [],
+    cachedOnlineWords: Array.isArray(parsed.cachedOnlineWords) ? parsed.cachedOnlineWords : [],
+    unlockedBadges: Array.isArray(parsed.unlockedBadges) ? parsed.unlockedBadges : [],
+    revisionSessionsCompleted: parsed.revisionSessionsCompleted ?? 0,
+  };
+}
+
+class AppErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; message: string }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, message: '' };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, message: error?.message || 'Erreur inattendue' };
+  }
+
+  componentDidCatch(_error: Error, _info: ErrorInfo) {
+    SplashScreen.hideAsync().catch(() => {});
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <SafeAreaProvider>
+          <SafeAreaView style={styles.errorContainer}>
+            <Text style={styles.errorTitle}>English Lesson</Text>
+            <Text style={styles.errorBody}>
+              Une erreur est survenue au démarrage ({this.state.message}).
+            </Text>
+            <Pressable
+              style={styles.primaryBtn}
+              onPress={() => {
+                AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+                this.setState({ hasError: false, message: '' });
+              }}
+            >
+              <Text style={styles.primaryBtnText}>Réinitialiser et relancer</Text>
+            </Pressable>
+          </SafeAreaView>
+        </SafeAreaProvider>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
+  return (
+    <AppErrorBoundary>
+      <SafeAreaProvider>
+        <EnglishLessonMain />
+      </SafeAreaProvider>
+    </AppErrorBoundary>
+  );
+}
+
+function EnglishLessonMain() {
   const [tab, setTab] = useState<Tab>('path');
   const [progress, setProgress] = useState<UserProgress>(getDefaultProgress);
 
@@ -66,13 +151,21 @@ export default function App() {
   const isDark = progress.theme === 'dark';
 
   useEffect(() => {
+    let active = true;
     AsyncStorage.getItem(STORAGE_KEY)
       .then((raw) => {
-        if (raw) {
-          setProgress({ ...getDefaultProgress(), ...JSON.parse(raw) });
+        if (active && raw) {
+          const parsed = JSON.parse(raw) as Partial<UserProgress>;
+          setProgress(mergeLoadedProgress(parsed));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        SplashScreen.hideAsync().catch(() => {});
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const persistProgress = (next: UserProgress) => {
@@ -832,4 +925,14 @@ const styles = StyleSheet.create({
   bottomBar: { flexDirection: 'row', borderTopWidth: 1, paddingVertical: 10 },
   tabItem: { flex: 1, alignItems: 'center', paddingVertical: 6 },
   tabText: { fontSize: 12, fontWeight: '600' },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#F8FAFC',
+    gap: 12,
+  },
+  errorTitle: { fontSize: 22, fontWeight: '700', color: '#0F172A' },
+  errorBody: { fontSize: 14, lineHeight: 20, color: '#475569', textAlign: 'center' },
 });

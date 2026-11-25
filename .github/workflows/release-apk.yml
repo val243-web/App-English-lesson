@@ -18,34 +18,43 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: '22'
 
       - name: Verify web TypeScript and Vite build
         run: |
-          npm install
+          npm install --legacy-peer-deps
           npm run lint
           npm run build
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
-          distribution: temurin
-          java-version: 17
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses > /dev/null 2>&1 || true
+      - name: Configure Android SDK 35 and NDK
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          SDK_MANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDK_MANAGER" ]; then
+            SDK_MANAGER="$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDK_MANAGER" ]; then
+            SDK_MANAGER="$(command -v sdkmanager)"
+          fi
+          yes | "$SDK_MANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDK_MANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
 
       - name: Install Expo app dependencies
         working-directory: mobile-expo
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Typecheck Expo app
         working-directory: mobile-expo
@@ -63,7 +72,7 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=4096'
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a --no-daemon --stacktrace
 
       - name: Prepare APK artifact
         run: |
@@ -79,9 +88,11 @@ jobs:
           fi
 
       - name: Publish APK to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.release_meta.outputs.tag }}
           name: English Lesson ${{ steps.release_meta.outputs.tag }}
           files: English-Lesson.apk
+          overwrite_files: true
           generate_release_notes: true
+          make_latest: true
